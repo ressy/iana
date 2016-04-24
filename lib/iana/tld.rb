@@ -6,47 +6,22 @@
 
 module IANA
   module TLD
-    # load IANA TLD list from flat file:
+    # Download official IANA Top Level Domain list
     # http://data.iana.org/TLD/tlds-alpha-by-domain.txt
-    def self.load(pathname)
-      raise ArgumentError, 'nil pathname' if pathname.nil?
-      raise ArgumentError, 'invalid pathname class' if pathname.class != String
-      raise ArgumentError, 'empty pathname' if pathname.empty?
+    def self.iana_list
+      open("http://data.iana.org/TLD/tlds-alpha-by-domain.txt").read.
+        split("\n").
+        reject {|ln| ln =~ /^#/ }
+    end
 
-      # TODO: better error checking for files with incorrect content
-
-      tlds = []
-      updated = nil
-
-      begin
-        f = File.new(pathname, 'r')
-        while (line = f.gets)
-          line.chomp!
-    
-          if line =~ /^# Version \d{10}, Last Updated ([\w:\s]*)$/
-            # extract update stamp
-            updated = $1
-            version,gunk= line.split(',')
-            version.sub!(/^# /, '')
-            updated.strip!
-          else
-            tlds << line.downcase!
-          end
-        end
-      ensure
-        f.close if !f.nil?
-      end
-
-      return tlds, updated, version
+    # is specified tld a valid IANA Top Level Domain?
+    def self.valid?(tld)
+      iana_list.include?(tld.to_s.upcase.sub('.',''))
     end
 
     # is specified domain name a TLD?
-    def self.tld?(dn)
-      raise ArgumentError, 'nil dn' if dn.nil?
-      raise ArgumentError, 'invalid dn class' if dn.class != String
-      raise ArgumentError, 'empty dn' if dn.empty?
-
-      return IANA_TLD.include?(dn) ? true : false
+    def self.tld?(tld)
+      valid?(tld)
     end
   end
 end

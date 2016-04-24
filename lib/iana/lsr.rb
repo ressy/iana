@@ -22,16 +22,16 @@ module IANA
     # Entries always have these keys: Type, [Tag or Subtag], Description, Added
     # All keys used in the IANA format:
     Keys = [
-     "Type",
-     "Tag",
-     "Subtag",
-     "Description",
-     "Added",
-     "Preferred-Value",
-     "Deprecated",
-     "Suppress-Script",
-     "Prefix",
-     "Comments" ]
+      "Type",
+      "Tag",
+      "Subtag",
+      "Description",
+      "Added",
+      "Preferred-Value",
+      "Deprecated",
+      "Suppress-Script",
+      "Prefix",
+      "Comments" ]
     IANAHost = 'www.iana.org'
     IANAPath = '/assignments/language-subtag-registry'
     IANAFile = File.dirname(__FILE__) + "/../../example-data/lsr.txt"
@@ -69,24 +69,27 @@ module IANA
       text.each do |line|
         line.chomp!
         case line
-          when /^%%$/:           (@@tags << item; item = {}) unless item.empty? # separator; append last entry, if present
-          when /^File-Date: .*/: @@file_date = line.gsub('File-Date: ','') # File-date entry
-          when /^  [^ ].*/:      item[prev].kind_of?(Array) ? item[prev].last += " " + line.strip : item[prev] += " " + line.strip # continuation line
-          else # everything else (the actual key: value pairs)
-            key, val = line.split(':', 2) # the main pair (ie, "Subtag: en")
-            if /\.\./.match val # value specifies a range, not simply a string
-              start, finish = val.strip.split('..', 2)
-              val = Range.new(start, finish)
-            else # otherwise it's just a string
-              val.strip!
-            end
-            if item.has_key?(key) # append to array if this key already exists
-              item[key] = [item[key]] unless item[key].kind_of? Array
-              item[key] << val
-            else # otherwise simply assign the item
-              item[key] = val
-            end
-            prev = key # in case of continuation (wrapped text)
+        when /^%%$/
+          (@@tags << item; item = {}) unless item.empty? # separator; append last entry, if present
+        when /^File-Date: .*/
+          @@file_date = line.gsub('File-Date: ','') # File-date entry
+        when /^  [^ ].*/
+          item[prev].kind_of?(Array) ? item[prev].last += " " + line.strip : item[prev] += " " + line.strip # continuation line
+        else # everything else (the actual key: value pairs)
+          key, val = line.split(':', 2) # the main pair (ie, "Subtag: en")
+          if /\.\./.match val # value specifies a range, not simply a string
+            start, finish = val.strip.split('..', 2)
+            val = Range.new(start, finish)
+          else # otherwise it's just a string
+            val.strip!
+          end
+          if item.has_key?(key) # append to array if this key already exists
+            item[key] = [item[key]] unless item[key].kind_of? Array
+            item[key] << val
+          else # otherwise simply assign the item
+            item[key] = val
+          end
+          prev = key # in case of continuation (wrapped text)
         end
       end
       @@tags << item
@@ -104,35 +107,35 @@ module IANA
         raise ArgumentError, "Invalid argument type; expected String"
       end
       case format
-        when "iana":
-          new_text = "File-Date: " + @@file_date + $/ + "%%" + $/
-          new_text << @@tags.map do |item|
-            Keys.map do |key|
-              val = item[key]
-              if val 
-                if val.kind_of? Array
-                  val.map { |i| key + ": " + i.to_s }.join($/)
-                else
-                  key + ": " + val.to_s
-                end
+      when "iana"
+        new_text = "File-Date: " + @@file_date + $/ + "%%" + $/
+        new_text << @@tags.map do |item|
+          Keys.map do |key|
+            val = item[key]
+            if val 
+              if val.kind_of? Array
+                val.map { |i| key + ": " + i.to_s }.join($/)
               else
-                nil
+                key + ": " + val.to_s
               end
-            end.compact.join($/) + $/
-          end.join('%%' + $/)
-          when "yaml":
-            require 'yaml'
-            YAML::dump([@@file_date, @@tags])
-          when "hash":
-            taghash = {}
-            @@tags.each do |tag|
-              tag = tag.clone
-              val = tag.delete("Tag") || tag.delete("Subtag")
-              taghash[val.to_s] = tag
+            else
+              nil
             end
-            taghash
-          else
-            raise ArgumentError, "Invalid format option"
+          end.compact.join($/) + $/
+        end.join('%%' + $/)
+      when "yaml"
+        require 'yaml'
+        YAML::dump([@@file_date, @@tags])
+      when "hash"
+        taghash = {}
+        @@tags.each do |tag|
+          tag = tag.clone
+          val = tag.delete("Tag") || tag.delete("Subtag")
+          taghash[val.to_s] = tag
+        end
+        taghash
+      else
+        raise ArgumentError, "Invalid format option"
       end
     end
 

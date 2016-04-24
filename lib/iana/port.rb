@@ -5,74 +5,109 @@
 # lib/iana/port.rb
 
 module IANA
-  module Port
-    Port = Struct.new('PORT', :keyword, :protocol, :description)
+  class Port
+    attr_reader :port, :keyword, :protocol, :description
 
-    # load IANA ports list from flat file:
-    # http://www.iana.org/assignments/port-numbers
-    def self.load(pathname)
-      raise ArgumentError, 'nil pathname' if pathname.nil?
-      raise ArgumentError, 'invalid pathname class' if pathname.class != String
-      raise ArgumentError, 'empty pathname' if pathname.empty?
+    def initialize(port, keyword, protocol, description)
+      @port, @keyword, @protocol, @description = port, keyword, protocol, description
+    end
 
-      # TODO: better error checking for files with incorrect content
+    def port; @port; end
+    def number; @port; end
+    def keyword; @keyword; end
+    def protocol; @protocol; end
+    def description; @description; end
+
+    # Download IANA ports list in XML format, return list
+    # http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml
+    def self.iana_list
+      source = open("http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.csv").
+        read
+
+      # concatenate multiline strings, then split on newline
+      lines = source.gsub(/(?<!\r)\n/, ' ').split(/\r\n/)
 
       ports = {}
-      updated = nil
 
       begin
-        f = File.new(pathname, 'r')
-        while (line = f.gets)
-          line.chomp!
-
-          # extract update stamp
-          if line =~ /^\(last updated (\d{4}-\d{2}-\d{2})\)\s*$/
-            updated = $1
+        while (line = lines.shift)
+          # skip lines which do not contain the ,proto, pattern
+          if line !~ /\d,(tcp|udp|sctp|dccp),/
             next
           end
 
-          # skip commented lines
-          next if line =~ /^#/
+          proto = line.split(/,(?=(?:[^"]|"[^"]*")*$)/)
+          name = proto[0]
+          num = proto[1].to_i
+          protocol = proto[2]
+          desc = proto[3]
 
-          # skip lines which do not contain the /{proto} pattern
-          if line !~ /\/tcp/ && line !~ /\/udp/ && line !~ /\/sctp/ && \
-            line !~ /\/dccp/
-              next
-          end
-
-          line.strip!
-          tokens = line.split(/[\s]+/)
-
-          # if first token is a port/proto pair then the port is unnamed
-          if tokens[0] =~ /\//
-            name = nil
-            num,proto = tokens[0].split(/\//)
-            tokens.delete_at(0)
-          else
-            name = tokens[0]
-            num,proto = tokens[1].split(/\//)
-            2.times { tokens.delete_at(0) }
-          end
-
-          # remainder of tokens serves as the description
-          desc = tokens.join(' ')
-
-          p = Port.new(name, proto, desc)
-
-          if ports[num.to_i].nil?
-            ports[num.to_i] = p
-          else
-            c = []
-            c << ports[num.to_i]
-            c << p
-            ports[num.to_i] = c.flatten
-          end
+          ports[num] ||= Array.new
+          ports[num] << Port.new(num, name, protocol, desc)
         end
-      ensure
-        f.close if !f.nil?
       end
 
-      return ports, updated
+      return ports
+    end
+
+    # Look up port definition in iana_list by number
+    def self.[](num, protocol=nil)
+      raise ArgumentError, 'port number must be an Fixnum' if num.class != Fixnum
+      raise ArgumentError, 'protocol must be tcp, udp, sctp or dccp' unless [nil, 'tcp', 'udp', 'sctp', 'dccp'].include?(protocol)
+
+      if protocol.nil?
+        iana_list[num]
+      else
+        iana_list[num].select {|p| p.protocol == protocol }
+      end
+    end
+
+    # Select Ports by properties and values
+    def self.select(properties)
+      portlist = iana_list.collect do |num, ports|
+        list = ports.select do |p|
+          properties.collect {|key, val|
+            p.send(key) == val
+          }.all?
+        end
+        list.empty? ? nil : [num, list]
+      end
+      Hash[*portlist.compact.flatten(1)]
+    end
+
+    # Methods to query IANA Ports within a namespace, like IANA::Port::TCP
+    class PortQuerying
+
+      # Return the Port's protocol name in lower case
+      def self.protocol
+        name.sub(/.*::/,'').downcase
+      end
+
+      # List all Ports by this protocol
+      def self.list
+        IANA::Port.select protocol: protocol
+      end
+
+      # Look up given Port number under this protocol
+      def self.[](num)
+        IANA::Port[num, protocol]
+      end
+    end
+
+    # Look up DCCP port definition in iana_list
+    class DCCP < PortQuerying
+    end
+
+    # Look up SCTP port definition in iana_list
+    class SCTP < PortQuerying
+    end
+
+    # Look up UDP port definition in iana_list
+    class UDP < PortQuerying
+    end
+
+    # Look up TCP port definition in iana_list
+    class TCP < PortQuerying
     end
   end
 end

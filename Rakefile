@@ -6,7 +6,6 @@
 
 require 'rubygems'
 require 'rake'
-require 'echoe'
 require 'yard'
 
 require 'rake/clean'
@@ -14,15 +13,6 @@ require 'rake/testtask'
 
 CLEAN.include('cache/*', 'Manifest', 'iana.gemspec')
 CLOBBER.include('cache')
-
-Echoe.new('iana', '1.1.0') do |p|
-  p.description    = "Process flat files from IANA"
-  p.url            = "https://github.com/yesmar/iana"
-  p.author         = "Ramsey Dow"
-  p.email          = "yesmar @nospam@ gmail.com"
-  p.ignore_pattern = [".*", "cache/*", "doc/*", "pkg/*"]
-  p.development_dependencies = []
-end
 
 task :default do
   system("rake -T")
